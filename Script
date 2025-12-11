@@ -1,0 +1,215 @@
+-- Roblox Aimbot Script with GUI
+-- Features: Toggle on E, FOV slider, Target select (Head/Body), Draggable GUI, Close button
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser") -- For mouse simulation if supported
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- State
+local aimbotEnabled = false
+local fov = 120 -- Default FOV in degrees
+local targetPart = "Head" -- Default target: "Head" or "HumanoidRootPart"
+local mouse = LocalPlayer:GetMouse()
+
+-- Function to find closest enemy in FOV
+local function getClosestEnemy()
+    local closest = nil
+    local minDist = math.huge
+    local center = Camera.ViewportSize / 2
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local part = player.Character:FindFirstChild(targetPart)
+            if part then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    local angle = math.deg(math.acos(Camera.CFrame.LookVector:Dot((part.Position - Camera.CFrame.Position).Unit)))
+                    if dist < minDist and angle <= fov / 2 then
+                        minDist = dist
+                        closest = part
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Aimbot loop
+local aimConn
+local function startAimbot()
+    if aimConn then return end
+    aimConn = RunService.RenderStepped:Connect(function()
+        if aimbotEnabled then
+            local target = getClosestEnemy()
+            if target then
+                -- Aim camera to target
+                local newCFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(newCFrame, 0.2) -- Smooth lerp
+
+                -- Optional: Simulate mouse if VirtualUser supported
+                pcall(function()
+                    local screenPos = Camera:WorldToScreenPoint(target.Position)
+                    VirtualUser:MoveMouse(screenPos.X, screenPos.Y)
+                end)
+            end
+        end
+    end)
+end
+
+local function stopAimbot()
+    if aimConn then
+        aimConn:Disconnect()
+        aimConn = nil
+    end
+end
+
+-- Toggle on E
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        aimbotEnabled = not aimbotEnabled
+        if aimbotEnabled then
+            startAimbot()
+        else
+            stopAimbot()
+        end
+        -- Update GUI status if needed
+    end
+end)
+
+-- GUI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Name = "AimbotGUI"
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Position = UDim2.new(0.8, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true -- Make draggable
+
+local Header = Instance.new("TextLabel")
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Header.Text = "Aimbot GUI"
+Header.TextColor3 = Color3.fromRGB(255, 255, 255)
+Header.Font = Enum.Font.SourceSansBold
+Header.TextSize = 18
+Header.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Parent = Header
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    stopAimbot()
+end)
+
+-- Toggle Button for Aimbot (though main toggle is E, this is for GUI)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -20, 0, 30)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 40)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ToggleBtn.Text = "Aimbot: OFF (Toggle E)"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Parent = MainFrame
+ToggleBtn.MouseButton1Click:Connect(function()
+    aimbotEnabled = not aimbotEnabled
+    ToggleBtn.Text = "Aimbot: " .. (aimbotEnabled and "ON" or "OFF") .. " (Toggle E)"
+    if aimbotEnabled then startAimbot() else stopAimbot() end
+end)
+
+-- FOV Slider
+local FovLabel = Instance.new("TextLabel")
+FovLabel.Size = UDim2.new(1, -20, 0, 20)
+FovLabel.Position = UDim2.new(0, 10, 0, 80)
+FovLabel.BackgroundTransparency = 1
+FovLabel.Text = "FOV: " .. fov
+FovLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+FovLabel.Parent = MainFrame
+
+local SliderBg = Instance.new("Frame")
+SliderBg.Size = UDim2.new(1, -20, 0, 10)
+SliderBg.Position = UDim2.new(0, 10, 0, 100)
+SliderBg.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+SliderBg.Parent = MainFrame
+
+local SliderFill = Instance.new("Frame")
+SliderFill.Size = UDim2.new(fov / 360, 0, 1, 0)
+SliderFill.BackgroundColor3 = Color3.fromRGB(100, 80, 255)
+SliderFill.Parent = SliderBg
+
+local SliderBtn = Instance.new("TextButton")
+SliderBtn.Size = UDim2.new(1, 0, 1, 0)
+SliderBtn.BackgroundTransparency = 1
+SliderBtn.Text = ""
+SliderBtn.Parent = SliderBg
+SliderBtn.MouseButton1Down:Connect(function()
+    local mouse = LocalPlayer:GetMouse()
+    local moveConn, upConn
+    local function updateSlider()
+        local relX = math.clamp(mouse.X - SliderBg.AbsolutePosition.X, 0, SliderBg.AbsoluteSize.X)
+        local pct = relX / SliderBg.AbsoluteSize.X
+        fov = math.floor(pct * 360)
+        SliderFill.Size = UDim2.new(pct, 0, 1, 0)
+        FovLabel.Text = "FOV: " .. fov
+    end
+    updateSlider()
+    moveConn = mouse.Move:Connect(updateSlider)
+    upConn = UserInputService.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+            moveConn:Disconnect()
+            upConn:Disconnect()
+        end
+    end)
+end)
+
+-- Target Select
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(1, -20, 0, 20)
+TargetLabel.Position = UDim2.new(0, 10, 0, 120)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "Target: Head"
+TargetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetLabel.Parent = MainFrame
+
+local HeadBtn = Instance.new("TextButton")
+HeadBtn.Size = UDim2.new(0.45, 0, 0, 30)
+HeadBtn.Position = UDim2.new(0, 10, 0, 140)
+HeadBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 255)
+HeadBtn.Text = "Head"
+HeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HeadBtn.Parent = MainFrame
+HeadBtn.MouseButton1Click:Connect(function()
+    targetPart = "Head"
+    TargetLabel.Text = "Target: Head"
+end)
+
+local BodyBtn = Instance.new("TextButton")
+BodyBtn.Size = UDim2.new(0.45, 0, 0, 30)
+BodyBtn.Position = UDim2.new(0.5, 10, 0, 140)
+BodyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+BodyBtn.Text = "Body"
+BodyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BodyBtn.Parent = MainFrame
+BodyBtn.MouseButton1Click:Connect(function()
+    targetPart = "HumanoidRootPart"
+    TargetLabel.Text = "Target: Body"
+end)
+
+-- End of script. GUI is ready, aimbot toggles on E.
