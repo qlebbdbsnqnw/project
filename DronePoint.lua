@@ -1,3 +1,6 @@
+-- DronePoint Script vFINAL (кнопки должны работать)
+-- Created by ABOBUS_AMOGUS228902
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -15,7 +18,7 @@ local droneNames = {
     "sh1d","sh1n","super","switchblade","uav","ub-16","uv-2","umpb5","ztk","zu-23","zala","bbrd","bbrn","ger","f1",
     "fpv","fireparts","gasbarrel","gecamo","geday","genight","grbr","grbrbl","h-22","h55","h59","h6","h65","igla",
     "iskan","italm","itlms","krr","krrwbomb","238","2day","2night","3day","3night","and","airborne","arop","arsh",
-    "b-13","batyar","bird","c20","cluster","droner","experimental","fp-"
+    "b-13","batyar","bird","c20","cluster","droner","experimental","fp-", "droneday", "dronenight"
 }
 
 local activeESP = {}
@@ -31,6 +34,7 @@ local function isDrone(name)
     return false
 end
 
+-- ==================== ESP & PREDICTION ====================
 local function createESP(model)
     if activeESP[model] or model:FindFirstChildOfClass("Humanoid") then return end
 
@@ -63,6 +67,7 @@ local function removeESP()
     targetData = {}
 end
 
+-- ==================== UPDATE LOOP ====================
 RunService.RenderStepped:Connect(function()
     for model, data in pairs(targetData) do
         if model.PrimaryPart then
@@ -117,12 +122,14 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- ==================== LOADING + GUI ====================
 local function createLoadingAndGUI()
     local sg = Instance.new("ScreenGui")
     sg.Name = "DronePoint"
     sg.ResetOnSpawn = false
     sg.Parent = guiParent
 
+    -- Загрузочный фрейм (точно такой же размер/позиция)
     local loadFrame = Instance.new("Frame")
     loadFrame.Size = UDim2.new(0, 360, 0, 220)
     loadFrame.Position = UDim2.new(0.5, -180, 0.5, -110)
@@ -148,6 +155,7 @@ local function createLoadingAndGUI()
         TextTransparency = 0.4
     }):Play()
 
+    -- Через 2 секунды убираем загрузку и показываем GUI
     task.delay(2, function()
         if not loadFrame.Parent then return end
 
@@ -157,6 +165,7 @@ local function createLoadingAndGUI()
         task.delay(0.9, function()
             loadFrame:Destroy()
 
+            -- Теперь создаём основное меню
             local mainFrame = Instance.new("Frame")
             mainFrame.Size = UDim2.new(0, 360, 0, 220)
             mainFrame.Position = UDim2.new(0.5, -180, 0.5, -110)
@@ -202,6 +211,7 @@ local function createLoadingAndGUI()
                 removeESP()
             end)
 
+            -- Кнопки
             local espBtn = Instance.new("TextButton", mainFrame)
             espBtn.Size = UDim2.new(0.92, 0, 0, 48)
             espBtn.Position = UDim2.new(0.04, 0, 0, 70)
@@ -245,17 +255,22 @@ local function createLoadingAndGUI()
                 aimBtn.Text = "Air Defense (" .. (autoAimEnabled and "ON" or "OFF") .. ")"
             end)
 
+            -- Лёгкая анимация появления основного GUI
             mainFrame.BackgroundTransparency = 1
             TweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quint), {BackgroundTransparency = 0}):Play()
         end)
     end)
 end
 
+-- ==================== SPAWN ====================
 workspace.ChildAdded:Connect(function(child)
     if espEnabled and child:IsA("Model") and isDrone(child.Name) then
         task.wait(0.08)
         createESP(child)
+        -- можно добавить уведомление, если хочешь
     end
 end)
 
 createLoadingAndGUI()
+
+print("DronePoint launched — check console for button presses")
